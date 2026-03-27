@@ -149,6 +149,12 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTED: Generate endpoint working correctly. Tested with Operating Systems and Data Structures subjects. Proper 2s delay implemented (~2.16-2.19s). Returns complete question paper structure with success:true, proper data fields. Handles missing fields gracefully with defaults."
+      - working: "NA"
+        agent: "main"
+        comment: "Updated to accept new 'course' field in the request body alongside department, subject, year, difficulty, customPrompt. Course field is now included in the response paper object."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Updated generate endpoint with course field working correctly. Test 1: SOET/BCA Operating Systems with course field properly included in response. Test 2: SOBE/MBA with empty subject/year fields handled correctly. Test 3: Backward compatibility confirmed - endpoint works without course field. All tests show proper 2s delay (~2.17-2.20s). Course field correctly included in all responses."
 
   - task: "POST /api/inject - Inject custom JSON for developer testing"
     implemented: true
@@ -231,3 +237,5 @@ agent_communication:
     message: "Full dashboard built. All 4 API endpoints implemented with mock data. Frontend has sidebar with dropdowns, paper renderer, dev panel. Please test all backend endpoints. The base URL is https://question-craft-8.preview.emergentagent.com. API endpoints are /api/health, /api/subjects, /api/generate (POST with body {department, subject, year, difficulty, customPrompt}), /api/inject (POST with body {jsonData: {...}})"
   - agent: "testing"
     message: "✅ BACKEND TESTING COMPLETE: All 4 API endpoints tested and working correctly. Health endpoint returns proper status/timestamp. Subjects endpoint returns all required dropdown data. Generate endpoint works with 2s delay for both Operating Systems and Data Structures subjects, handles missing fields gracefully. Inject endpoint properly validates JSON and handles errors. No critical issues found. All endpoints ready for frontend integration."
+  - agent: "testing"
+    message: "✅ UPDATED GENERATE ENDPOINT TESTING COMPLETE: Successfully tested the updated POST /api/generate endpoint with new 'course' field. Test cases: 1) SOET/BCA Operating Systems with course field properly returned, 2) SOBE/MBA with empty fields handled correctly, 3) Backward compatibility confirmed. All tests show proper 2s delay. Health and inject endpoints also verified working. All backend APIs functioning correctly with course field integration."

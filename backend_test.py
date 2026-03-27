@@ -128,18 +128,19 @@ def test_subjects_endpoint():
         return False
 
 def test_generate_endpoint():
-    """Test POST /api/generate endpoint"""
-    print_test_header("POST /api/generate - Generate Question Paper")
+    """Test POST /api/generate endpoint with new course field"""
+    print_test_header("POST /api/generate - Generate Question Paper (Updated with Course Field)")
     
-    # Test 1: Valid request with Operating Systems
-    print("\n--- Test 1: Valid request with Operating Systems ---")
+    # Test 1: Valid request with Operating Systems and course field (SOET/BCA)
+    print("\n--- Test 1: Valid request with SOET/BCA Operating Systems ---")
     try:
         payload = {
-            "department": "BCA",
+            "department": "SOET",
+            "course": "BCA",
             "subject": "Operating Systems",
-            "year": "2023",
+            "year": "15-06-2023",
             "difficulty": "Medium",
-            "customPrompt": "test"
+            "customPrompt": ""
         }
         
         print(f"Request payload: {json.dumps(payload, indent=2)}")
@@ -176,12 +177,21 @@ def test_generate_endpoint():
                 print_result(False, f"Missing required fields in data: {missing_fields}")
                 return False
             
+            # Check if course field is included in response
+            if 'course' not in paper_data:
+                print_result(False, "Course field missing from response data")
+                return False
+            
+            if paper_data['course'] != 'BCA':
+                print_result(False, f"Expected course 'BCA', got '{paper_data.get('course')}'")
+                return False
+            
             # Check if delay was applied (should be around 2 seconds)
             if duration < 1.8:
                 print_result(False, f"Expected ~2s delay, got {duration:.2f}s")
                 return False
             
-            print_result(True, "Generate endpoint with Operating Systems working correctly")
+            print_result(True, "Generate endpoint with SOET/BCA Operating Systems working correctly")
         else:
             print_result(False, f"Expected status 200, got {response.status_code}")
             return False
@@ -193,14 +203,75 @@ def test_generate_endpoint():
         print_result(False, f"Invalid JSON response: {str(e)}")
         return False
     
-    # Test 2: Valid request with Data Structures
-    print("\n--- Test 2: Valid request with Data Structures ---")
+    # Test 2: Valid request with SOBE/MBA and empty fields
+    print("\n--- Test 2: Valid request with SOBE/MBA and empty fields ---")
+    try:
+        payload = {
+            "department": "SOBE",
+            "course": "MBA",
+            "subject": "",
+            "year": "",
+            "difficulty": "Hard"
+        }
+        
+        print(f"Request payload: {json.dumps(payload, indent=2)}")
+        start_time = time.time()
+        
+        response = requests.post(f"{BASE_URL}/api/generate", 
+                               json=payload, 
+                               timeout=TIMEOUT)
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        print(f"Status Code: {response.status_code}")
+        print(f"Response time: {duration:.2f} seconds")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get('success') and 'data' in data:
+                paper_data = data['data']
+                
+                # Check if course field is included in response
+                if 'course' not in paper_data:
+                    print_result(False, "Course field missing from response data")
+                    return False
+                
+                if paper_data['course'] != 'MBA':
+                    print_result(False, f"Expected course 'MBA', got '{paper_data.get('course')}'")
+                    return False
+                
+                # Check if department is set correctly
+                if paper_data.get('department') != 'SOBE':
+                    print_result(False, f"Expected department 'SOBE', got '{paper_data.get('department')}'")
+                    return False
+                
+                # Check if difficulty is set correctly
+                if paper_data.get('difficulty') != 'Hard':
+                    print_result(False, f"Expected difficulty 'Hard', got '{paper_data.get('difficulty')}'")
+                    return False
+                
+                print_result(True, "Generate endpoint with SOBE/MBA working correctly")
+            else:
+                print_result(False, "Invalid response structure")
+                return False
+        else:
+            print_result(False, f"Expected status 200, got {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print_result(False, f"Request failed: {str(e)}")
+        return False
+    
+    # Test 3: Backward compatibility test (without course field)
+    print("\n--- Test 3: Backward compatibility test (without course field) ---")
     try:
         payload = {
             "department": "BCA",
             "subject": "Data Structures",
             "year": "2023",
-            "difficulty": "Hard",
+            "difficulty": "Medium",
             "customPrompt": "Focus on algorithms"
         }
         
@@ -223,7 +294,12 @@ def test_generate_endpoint():
             if data.get('success') and 'data' in data:
                 paper_data = data['data']
                 if paper_data.get('subject') == 'Data Structures':
-                    print_result(True, "Generate endpoint with Data Structures working correctly")
+                    # Check if course field exists (should be empty string or default)
+                    if 'course' in paper_data:
+                        print_result(True, "Generate endpoint backward compatibility working correctly")
+                    else:
+                        print_result(False, "Course field missing from response (backward compatibility issue)")
+                        return False
                 else:
                     print_result(False, f"Expected subject 'Data Structures', got '{paper_data.get('subject')}'")
                     return False
@@ -238,8 +314,8 @@ def test_generate_endpoint():
         print_result(False, f"Request failed: {str(e)}")
         return False
     
-    # Test 3: Error case with missing fields
-    print("\n--- Test 3: Error case with missing fields ---")
+    # Test 4: Error case with missing fields
+    print("\n--- Test 4: Error case with missing fields ---")
     try:
         payload = {
             "department": "BCA"
@@ -275,19 +351,13 @@ def test_inject_endpoint():
     """Test POST /api/inject endpoint"""
     print_test_header("POST /api/inject - Inject Custom JSON")
     
-    # Test 1: Valid JSON object
-    print("\n--- Test 1: Valid JSON object ---")
+    # Test 1: Valid JSON object (specific test case from review)
+    print("\n--- Test 1: Valid JSON object (specific test case) ---")
     try:
         test_data = {
-            "university": "Test University",
-            "sections": [
-                {
-                    "name": "Section A",
-                    "questions": [
-                        {"number": 1, "text": "Test question", "marks": 5}
-                    ]
-                }
-            ]
+            "university": "Test Uni",
+            "course": "BCA",
+            "sections": []
         }
         
         payload = {
@@ -321,6 +391,10 @@ def test_inject_endpoint():
             # Check if injected data is returned correctly
             if data['data']['university'] != test_data['university']:
                 print_result(False, "Injected data not returned correctly")
+                return False
+            
+            if data['data']['course'] != test_data['course']:
+                print_result(False, "Course field not returned correctly")
                 return False
             
             print_result(True, "Inject endpoint with valid JSON working correctly")

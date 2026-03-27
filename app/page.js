@@ -28,18 +28,97 @@ import {
 } from 'lucide-react';
 
 // ============================================================
-// Subject Data (mirrored from API)
+// Department & Course Data (from university question paper tree)
 // ============================================================
-const SUBJECT_MAP = {
-  BCA: ['Operating Systems', 'Data Structures', 'Database Management', 'Computer Networks', 'Web Technologies'],
-  MCA: ['Advanced OS', 'Design & Analysis of Algorithms', 'Software Engineering', 'AI & Machine Learning'],
-  'B.Tech CS': ['Operating Systems', 'Data Structures', 'Computer Architecture', 'Compiler Design'],
-  'B.Sc IT': ['Programming in C', 'Data Structures', 'Operating Systems', 'Software Testing'],
+const DEPARTMENTS = [
+  { code: 'SOBAS', name: 'SOBAS - School of Basic & Applied Sciences' },
+  { code: 'SOBE', name: 'SOBE - School of Business & Economics' },
+  { code: 'SOE', name: 'SOE - School of Education' },
+  { code: 'SOET', name: 'SOET - School of Engineering & Technology' },
+  { code: 'SOHMS', name: 'SOHMS - School of Health & Medical Sciences' },
+  { code: 'SOLACS', name: 'SOLACS - School of Liberal Arts, Commerce & Social Sciences' },
+  { code: 'SOLB', name: 'SOLB - School of Life Sciences & Biotechnology' },
+  { code: 'SOLJ', name: 'SOLJ - School of Law & Justice' },
+  { code: 'SOMC', name: 'SOMC - School of Media & Communication' },
+  { code: 'SOSA', name: 'SOSA - School of Science & Agriculture' },
+];
+
+const COURSES_MAP = {
+  SOBAS: [
+    'B.Sc Chemistry', 'M.Sc Chemistry',
+    'B.Sc Physics', 'M.Sc Physics',
+    'B.Sc Mathematics', 'M.Sc Mathematics',
+    'B.Sc Applied Mathematics', 'M.Sc Applied Mathematics',
+    'B.Sc Geography', 'M.Sc Geography', 'M.Sc Geoinformatics',
+    'B.Sc Statistics & Data Analytics', 'M.Sc Statistics & Data Science',
+    'BA Psychology', 'B.Sc Psychology', 'MA Psychology', 'M.Sc Psychology',
+    'B.Sc Environmental Science', 'M.Sc Environmental Science',
+    'B.Sc Forensic Science', 'M.Sc Forensic Science',
+  ],
+  SOBE: [
+    'BBA (H)', 'BBA (Digital Marketing)', 'BBA (Entrepreneurship)',
+    'BBA (Logistics & Supply Chain)', 'BBA (Business Analytics)', 'BBA (EFB)',
+    'MBA', 'MBA (Dual)', 'MBA (Business Analytics)',
+    'MBA (Logistics & Supply Chain)', 'MBA (Data Science)',
+    'MBA (Communication Management)', 'MBA (Media Management)',
+    'B.Com', 'M.Com',
+    'BA Economics', 'B.Sc Economics', 'MA Economics', 'M.Sc Economics',
+  ],
+  SOE: [
+    'B.Ed', 'BA Education', 'MA Education',
+  ],
+  SOET: [
+    'B.Tech Civil Engineering',
+    'B.Tech Computer Science & Engineering',
+    'B.Tech CSE (AI & ML)', 'B.Tech CSE (Cyber Security & Forensics)',
+    'B.Tech Electronics & Communication Engineering',
+    'B.Tech Electrical Engineering', 'B.Tech Electrical & Electronics Engineering',
+    'B.Tech Mechanical Engineering',
+    'B.Tech Biomedical Engineering',
+    'B.Tech Biotechnology',
+    'M.Tech CSE', 'M.Tech Structural Engineering',
+    'M.Tech Environmental Engineering', 'M.Tech Statistics & Data Science',
+    'BCA', 'BCA (BFSI)', 'BCA (GA)',
+    'MCA',
+    'B.Sc Computer Science',
+  ],
+  SOHMS: [
+    'B.Pharm', 'D.Pharm',
+    'M.Pharm Pharmaceutics', 'M.Pharm Pharmacology',
+    'BMLT', 'MLT',
+    'B.Sc FND (Food, Nutrition & Dietetics)', 'B.Sc Optometry',
+  ],
+  SOLACS: [
+    'BA Bengali', 'MA Bengali',
+    'BA English', 'MA English',
+    'BA History', 'MA History',
+    'BA Political Science', 'MA Political Science',
+    'BA Political Science & International Relations', 'MA Political Science & International Relations',
+    'BA Psychology', 'B.Sc Psychology', 'MA Psychology', 'M.Sc Psychology',
+    'BA Sociology', 'B.Sc Sociology', 'MA Sociology',
+    'BA Public Administration & Governance', 'MA Public Administration & Governance',
+  ],
+  SOLB: [
+    'B.Sc Biochemistry', 'M.Sc Biochemistry',
+    'B.Sc Biotechnology', 'B.Tech Biotechnology', 'M.Sc Biotechnology', 'M.Tech Biotechnology',
+    'B.Sc Microbiology', 'M.Sc Microbiology',
+    'B.Sc Genetics',
+  ],
+  SOLJ: [
+    'BA LLB', 'BBA LLB', 'B.Sc LLB', 'LLB', 'LLM',
+  ],
+  SOMC: [
+    'BA Journalism & Mass Communication', 'BA Media & Communication',
+    'B.Sc Media Technology', 'B.Sc Graphics, Animation & Media Technology',
+    'MA Film & Television', 'MA Journalism & Mass Communication',
+    'MBA Communication Management', 'MBA Media Management',
+  ],
+  SOSA: [
+    'B.Sc Agriculture',
+  ],
 };
 
-const YEARS = ['2020', '2021', '2022', '2023', '2024', '2025'];
 const DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
-const DEPARTMENTS = Object.keys(SUBJECT_MAP);
 
 // ============================================================
 // Mock fetch function (simulates API call)
@@ -108,9 +187,11 @@ function QuestionPaperRenderer({ paper }) {
           <span>Year: {paper.year || '-'}</span>
         </div>
         <h2 className="text-lg font-semibold text-blue-400 mt-3">
-          {paper.subject || 'Subject Name'}
+          {paper.course || paper.subject || 'Subject Name'}
         </h2>
-        <p className="text-zinc-500 text-sm mt-1">Course Code: {paper.courseCode || '-'}</p>
+        <p className="text-zinc-500 text-sm mt-1">
+          {paper.subject ? `Subject: ${paper.subject} | ` : ''}Course Code: {paper.courseCode || '-'}
+        </p>
 
         {/* Meta bar */}
         <div className="mt-4 flex items-center justify-center gap-6 text-sm">
@@ -219,6 +300,7 @@ function QuestionPaperRenderer({ paper }) {
 export default function App() {
   // Sidebar state
   const [department, setDepartment] = useState('');
+  const [course, setCourse] = useState('');
   const [subject, setSubject] = useState('');
   const [year, setYear] = useState('');
   const [difficulty, setDifficulty] = useState('');
@@ -238,13 +320,29 @@ export default function App() {
   // Mobile sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Available subjects based on department
-  const availableSubjects = department ? SUBJECT_MAP[department] || [] : [];
+  // Available courses based on department
+  const availableCourses = department ? COURSES_MAP[department] || [] : [];
 
-  // Reset subject when department changes
+  // Reset course and subject when department changes
   useEffect(() => {
+    setCourse('');
     setSubject('');
   }, [department]);
+
+  // DD-MM-YYYY date input handler
+  const handleYearInput = (e) => {
+    let raw = e.target.value.replace(/[^\d]/g, '');
+    if (raw.length > 8) raw = raw.slice(0, 8);
+    let formatted = '';
+    if (raw.length > 4) {
+      formatted = raw.slice(0, 2) + '-' + raw.slice(2, 4) + '-' + raw.slice(4);
+    } else if (raw.length > 2) {
+      formatted = raw.slice(0, 2) + '-' + raw.slice(2);
+    } else {
+      formatted = raw;
+    }
+    setYear(formatted);
+  };
 
   // Clear messages after timeout
   useEffect(() => {
@@ -258,8 +356,8 @@ export default function App() {
   // Generate Paper Handler
   // ============================================================
   const handleGenerate = useCallback(async () => {
-    if (!department || !subject) {
-      setError('Please select at least a Department and Subject.');
+    if (!department || !course) {
+      setError('Please select at least a Department and Course.');
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -271,6 +369,7 @@ export default function App() {
     try {
       const result = await fetchQuestionPaper({
         department,
+        course,
         subject,
         year,
         difficulty,
@@ -283,7 +382,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [department, subject, year, difficulty, customPrompt]);
+  }, [department, course, subject, year, difficulty, customPrompt]);
 
   // ============================================================
   // Inject JSON Handler
@@ -380,54 +479,66 @@ export default function App() {
                 <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1]">
+                <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
                   {DEPARTMENTS.map((d) => (
-                    <SelectItem key={d} value={d} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      {d}
+                    <SelectItem key={d.code} value={d.code} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
+                      {d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Subject Select */}
+            {/* Course Select */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5" />
-                Subject
+                Course
               </label>
-              <Select value={subject} onValueChange={setSubject} disabled={!department}>
+              <Select value={course} onValueChange={setCourse} disabled={!department}>
                 <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl disabled:opacity-40">
-                  <SelectValue placeholder={department ? 'Select subject' : 'Select department first'} />
+                  <SelectValue placeholder={department ? 'Select course' : 'Select department first'} />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1]">
-                  {availableSubjects.map((s) => (
-                    <SelectItem key={s} value={s} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      {s}
+                <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
+                  {availableCourses.map((c) => (
+                    <SelectItem key={c} value={c} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
+                      {c}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Year Select */}
+            {/* Subject (Text Input) */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                Subject
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="e.g., Operating Systems"
+                className="w-full h-10 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all"
+              />
+            </div>
+
+            {/* Year (DD-MM-YYYY Input) */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
                 Year
               </label>
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1]">
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={y} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <input
+                type="text"
+                value={year}
+                onChange={handleYearInput}
+                placeholder="DD-MM-YYYY"
+                maxLength={10}
+                className="w-full h-10 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all font-mono tracking-wider"
+              />
+              <p className="text-[10px] text-zinc-600">Format: DD-MM-YYYY (e.g., 15-06-2023)</p>
             </div>
 
             {/* Difficulty Select */}
@@ -583,14 +694,14 @@ export default function App() {
                 </div>
                 <h3 className="text-xl font-semibold text-zinc-400 mb-2">No Paper Generated Yet</h3>
                 <p className="text-sm text-zinc-600 max-w-md">
-                  Select a department and subject from the sidebar, then click
+                  Select a department and course from the sidebar, then click
                   <span className="text-violet-400 font-medium"> "Generate Paper" </span>
                   to create an AI-powered question paper.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-zinc-600">
                   <span className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">1. Choose Department</span>
                   <ChevronDown className="w-3 h-3 rotate-[-90deg]" />
-                  <span className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">2. Select Subject</span>
+                  <span className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">2. Select Course</span>
                   <ChevronDown className="w-3 h-3 rotate-[-90deg]" />
                   <span className="px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">3. Generate</span>
                 </div>

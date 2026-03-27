@@ -173,7 +173,7 @@ export async function POST(request) {
   if (path === '/generate') {
     try {
       const body = await request.json();
-      const { department, subject, year, difficulty, customPrompt } = body;
+      const { department, course, subject, year, difficulty, customPrompt } = body;
 
       // Simulate AI processing delay (2 seconds)
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -185,6 +185,7 @@ export async function POST(request) {
       paper = {
         ...paper,
         department: department || paper.department,
+        course: course || paper.course || '',
         year: year || paper.year,
         subject: subject || paper.subject,
         difficulty: difficulty || 'Medium',
