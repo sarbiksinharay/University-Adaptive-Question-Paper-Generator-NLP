@@ -135,7 +135,7 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: Subjects endpoint working correctly. Returns all required fields (departments, subjects, years, difficulties) with proper data types and content. BCA department has expected subjects."
 
-  - task: "POST /api/generate - Generate question paper with mock data and 2s delay"
+  - task: "POST /api/generate - Generate question paper with new params: marksDivision, questionDivision, courseCode, freePrompt, theme"
     implemented: true
     working: true
     file: "app/api/[[...path]]/route.js"
@@ -145,16 +145,10 @@ backend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Accepts department, subject, year, difficulty, customPrompt. Returns mock question paper JSON after 2s delay"
+        comment: "Updated to accept: marksDivision (int 5-100), questionDivision (string), courseCode (string), freePrompt (boolean), theme (string). All included in response."
       - working: true
         agent: "testing"
-        comment: "✅ TESTED: Generate endpoint working correctly. Tested with Operating Systems and Data Structures subjects. Proper 2s delay implemented (~2.16-2.19s). Returns complete question paper structure with success:true, proper data fields. Handles missing fields gracefully with defaults."
-      - working: "NA"
-        agent: "main"
-        comment: "Updated to accept new 'course' field in the request body alongside department, subject, year, difficulty, customPrompt. Course field is now included in the response paper object."
-      - working: true
-        agent: "testing"
-        comment: "✅ TESTED: Updated generate endpoint with course field working correctly. Test 1: SOET/BCA Operating Systems with course field properly included in response. Test 2: SOBE/MBA with empty subject/year fields handled correctly. Test 3: Backward compatibility confirmed - endpoint works without course field. All tests show proper 2s delay (~2.17-2.20s). Course field correctly included in all responses."
+        comment: "✅ TESTED: All NEW parameters working correctly. Test 1: Structured mode with ALL new fields (marksDivision: 75, questionDivision: '10x2, 5x5, 3x10', courseCode: 'BCA-301', freePrompt: false, theme: 'dark') - all fields returned correctly with 2s delay. Test 2: Free prompt mode (freePrompt: true, marksDivision: 50, theme: 'light') - returns paper data without department/course. Test 3: Validation boundaries (marksDivision: 100) - accepted correctly. All tests passed with proper 2s delay."
 
   - task: "POST /api/inject - Inject custom JSON for developer testing"
     implemented: true
@@ -239,3 +233,5 @@ agent_communication:
     message: "✅ BACKEND TESTING COMPLETE: All 4 API endpoints tested and working correctly. Health endpoint returns proper status/timestamp. Subjects endpoint returns all required dropdown data. Generate endpoint works with 2s delay for both Operating Systems and Data Structures subjects, handles missing fields gracefully. Inject endpoint properly validates JSON and handles errors. No critical issues found. All endpoints ready for frontend integration."
   - agent: "testing"
     message: "✅ UPDATED GENERATE ENDPOINT TESTING COMPLETE: Successfully tested the updated POST /api/generate endpoint with new 'course' field. Test cases: 1) SOET/BCA Operating Systems with course field properly returned, 2) SOBE/MBA with empty fields handled correctly, 3) Backward compatibility confirmed. All tests show proper 2s delay. Health and inject endpoints also verified working. All backend APIs functioning correctly with course field integration."
+  - agent: "testing"
+    message: "✅ NEW PARAMETERS TESTING COMPLETE: Successfully tested POST /api/generate with ALL new parameters (marksDivision, questionDivision, courseCode, freePrompt, theme). All 3 test scenarios passed: 1) Structured mode with all new fields - all parameters returned correctly, 2) Free prompt mode - works without department/course, 3) Validation boundaries - marksDivision: 100 accepted. All tests maintain proper 2s delay. Backend fully supports new parameter requirements."

@@ -173,7 +173,7 @@ export async function POST(request) {
   if (path === '/generate') {
     try {
       const body = await request.json();
-      const { department, course, subject, year, difficulty, customPrompt } = body;
+      const { department, course, subject, year, difficulty, customPrompt, marksDivision, questionDivision, courseCode, freePrompt, theme } = body;
 
       // Simulate AI processing delay (2 seconds)
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -189,6 +189,11 @@ export async function POST(request) {
         year: year || paper.year,
         subject: subject || paper.subject,
         difficulty: difficulty || 'Medium',
+        marksDivision: marksDivision || 75,
+        questionDivision: questionDivision || '',
+        courseCode: courseCode || paper.courseCode,
+        freePrompt: freePrompt || false,
+        theme: theme || 'dark',
         generatedAt: new Date().toISOString(),
         aiModel: 'QuestionCraft AI v2.1',
         customPrompt: customPrompt || null,

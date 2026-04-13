@@ -6,6 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import {
   FileText,
   Sparkles,
@@ -25,6 +28,11 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Sun,
+  Moon,
+  Hash,
+  ListOrdered,
+  ToggleLeft,
 } from 'lucide-react';
 
 // ============================================================
@@ -306,6 +314,15 @@ export default function App() {
   const [difficulty, setDifficulty] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
 
+  // New input fields
+  const [marksDivision, setMarksDivision] = useState(75);
+  const [questionDivision, setQuestionDivision] = useState('');
+  const [courseCode, setCourseCode] = useState('');
+
+  // Toggles
+  const [freePrompt, setFreePrompt] = useState(false);
+  const [theme, setTheme] = useState('dark');
+
   // Paper state
   const [paper, setPaper] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -328,6 +345,17 @@ export default function App() {
     setCourse('');
     setSubject('');
   }, [department]);
+
+  // Theme toggle handler
+  const toggleTheme = useCallback(() => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   // DD-MM-YYYY date input handler
   const handleYearInput = (e) => {
@@ -356,8 +384,23 @@ export default function App() {
   // Generate Paper Handler
   // ============================================================
   const handleGenerate = useCallback(async () => {
-    if (!department || !course) {
+    // In structured mode, validate required fields
+    if (!freePrompt && (!department || !course)) {
       setError('Please select at least a Department and Course.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    // In free prompt mode, validate prompt
+    if (freePrompt && !customPrompt.trim()) {
+      setError('Please enter a prompt for free-form generation.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    // Validate marks division
+    if (!freePrompt && (marksDivision < 5 || marksDivision > 100)) {
+      setError('Marks Division must be between 5 and 100.');
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -367,14 +410,28 @@ export default function App() {
     setPaper(null);
 
     try {
-      const result = await fetchQuestionPaper({
-        department,
-        course,
-        subject,
-        year,
-        difficulty,
-        customPrompt,
-      });
+      const params = freePrompt
+        ? {
+            freePrompt: true,
+            customPrompt,
+            marksDivision,
+            theme,
+          }
+        : {
+            department,
+            course,
+            subject,
+            year,
+            difficulty,
+            marksDivision,
+            questionDivision,
+            courseCode,
+            freePrompt: false,
+            customPrompt,
+            theme,
+          };
+
+      const result = await fetchQuestionPaper(params);
       setPaper(result);
       setSuccessMessage('Question paper generated successfully!');
     } catch (err) {
@@ -382,7 +439,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [department, course, subject, year, difficulty, customPrompt]);
+  }, [department, course, subject, year, difficulty, customPrompt, marksDivision, questionDivision, courseCode, freePrompt, theme]);
 
   // ============================================================
   // Inject JSON Handler
@@ -419,18 +476,18 @@ export default function App() {
   // Render
   // ============================================================
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-background flex">
       {/* ============================================================ */}
       {/* Mobile Header */}
       {/* ============================================================ */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-zinc-950/80 backdrop-blur-xl border-b border-white/[0.06] flex items-center justify-between px-4 no-print">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-background/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 no-print">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="font-bold text-white">QuestionCraft</span>
+          <span className="font-bold text-foreground">QuestionCraft</span>
         </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-white/5 text-white">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-muted text-foreground">
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
@@ -449,137 +506,245 @@ export default function App() {
       {/* Sidebar Control Panel */}
       {/* ============================================================ */}
       <aside
-        className={`no-print fixed lg:static inset-y-0 left-0 z-50 w-80 bg-zinc-950 border-r border-white/[0.06] flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`no-print fixed lg:static inset-y-0 left-0 z-50 w-80 bg-card border-r border-border flex flex-col transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="p-6 border-b border-white/[0.06]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
+        <div className="p-6 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-foreground">QuestionCraft</h1>
+                <p className="text-xs text-muted-foreground">AI Question Paper Generator</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">QuestionCraft</h1>
-              <p className="text-xs text-zinc-500">AI Question Paper Generator</p>
-            </div>
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-white/[0.05] dark:bg-white/[0.05] hover:bg-white/[0.1] dark:hover:bg-white/[0.1] transition-colors"
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-yellow-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-blue-500" />
+              )}
+            </button>
           </div>
         </div>
 
         {/* Sidebar Controls */}
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-5">
-            {/* Department Select */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5" />
-                Department
-              </label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
-                  {DEPARTMENTS.map((d) => (
-                    <SelectItem key={d.code} value={d.code} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Course Select */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5" />
-                Course
-              </label>
-              <Select value={course} onValueChange={setCourse} disabled={!department}>
-                <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl disabled:opacity-40">
-                  <SelectValue placeholder={department ? 'Select course' : 'Select department first'} />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
-                  {availableCourses.map((c) => (
-                    <SelectItem key={c} value={c} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Subject (Text Input) */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" />
-                Subject
-              </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g., Operating Systems"
-                className="w-full h-10 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all"
+            {/* Free Prompt Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-violet-500/[0.06] border border-violet-500/[0.15]">
+              <div className="flex items-center gap-2">
+                <ToggleLeft className="w-4 h-4 text-violet-400" />
+                <div>
+                  <Label className="text-xs font-medium text-foreground cursor-pointer">Free Prompt Mode</Label>
+                  <p className="text-[10px] text-muted-foreground">Generate without structured inputs</p>
+                </div>
+              </div>
+              <Switch
+                checked={freePrompt}
+                onCheckedChange={setFreePrompt}
+                className="data-[state=checked]:bg-violet-600"
               />
             </div>
 
-            {/* Year (DD-MM-YYYY Input) */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                Year
+            {/* Structured inputs - disabled when freePrompt is ON */}
+            <div className={`space-y-5 transition-opacity duration-300 ${freePrompt ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+              {/* Department Select */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  Department
+                </label>
+                <Select value={department} onValueChange={setDepartment} disabled={freePrompt}>
+                  <SelectTrigger className="w-full bg-white/[0.03] dark:bg-white/[0.03] border-white/[0.08] dark:border-white/[0.08] text-foreground hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
+                    {DEPARTMENTS.map((d) => (
+                      <SelectItem key={d.code} value={d.code} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Course Select */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Course
+                </label>
+                <Select value={course} onValueChange={setCourse} disabled={!department || freePrompt}>
+                  <SelectTrigger className="w-full bg-white/[0.03] dark:bg-white/[0.03] border-white/[0.08] dark:border-white/[0.08] text-foreground hover:bg-white/[0.05] transition-colors h-10 rounded-xl disabled:opacity-40">
+                    <SelectValue placeholder={department ? 'Select course' : 'Select department first'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-white/[0.1] max-h-64">
+                    {availableCourses.map((c) => (
+                      <SelectItem key={c} value={c} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Course Code Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Hash className="w-3.5 h-3.5" />
+                  Course Code
+                </label>
+                <input
+                  type="text"
+                  value={courseCode}
+                  onChange={(e) => setCourseCode(e.target.value)}
+                  placeholder="e.g., BCA-301"
+                  disabled={freePrompt}
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] dark:border-white/[0.08] text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all disabled:opacity-40"
+                />
+              </div>
+
+              {/* Subject (Text Input) */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="e.g., Operating Systems"
+                  disabled={freePrompt}
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] dark:border-white/[0.08] text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all disabled:opacity-40"
+                />
+              </div>
+
+              {/* Year (DD-MM-YYYY Input) */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Year
+                </label>
+                <input
+                  type="text"
+                  value={year}
+                  onChange={handleYearInput}
+                  placeholder="DD-MM-YYYY"
+                  maxLength={10}
+                  disabled={freePrompt}
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] dark:border-white/[0.08] text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all font-mono tracking-wider disabled:opacity-40"
+                />
+                <p className="text-[10px] text-muted-foreground">Format: DD-MM-YYYY (e.g., 15-06-2023)</p>
+              </div>
+
+              {/* Difficulty Select */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Difficulty Level
+                </label>
+                <Select value={difficulty} onValueChange={setDifficulty} disabled={freePrompt}>
+                  <SelectTrigger className="w-full bg-white/[0.03] dark:bg-white/[0.03] border-white/[0.08] dark:border-white/[0.08] text-foreground hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
+                    <SelectValue placeholder="Select difficulty" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-white/[0.1]">
+                    {DIFFICULTIES.map((d) => (
+                      <SelectItem key={d} value={d} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${
+                            d === 'Easy' ? 'bg-green-400' : d === 'Medium' ? 'bg-yellow-400' : 'bg-red-400'
+                          }`} />
+                          {d}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator className="bg-white/[0.06] dark:bg-white/[0.06]" />
+
+            {/* Marks Division (always visible) */}
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  Marks Division
+                </span>
+                <span className="text-sm font-bold text-foreground bg-violet-500/10 dark:bg-violet-500/10 px-2 py-0.5 rounded-md border border-violet-500/20 min-w-[40px] text-center">
+                  {marksDivision}
+                </span>
+              </label>
+              <Slider
+                value={[marksDivision]}
+                onValueChange={(val) => setMarksDivision(val[0])}
+                min={5}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>5</span>
+                <span>25</span>
+                <span>50</span>
+                <span>75</span>
+                <span>100</span>
+              </div>
+            </div>
+
+            {/* Question Division */}
+            <div className={`space-y-2 transition-opacity duration-300 ${freePrompt ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <ListOrdered className="w-3.5 h-3.5" />
+                Question Division
               </label>
               <input
                 type="text"
-                value={year}
-                onChange={handleYearInput}
-                placeholder="DD-MM-YYYY"
-                maxLength={10}
-                className="w-full h-10 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all font-mono tracking-wider"
+                value={questionDivision}
+                onChange={(e) => setQuestionDivision(e.target.value)}
+                placeholder="e.g., 10x2, 5x5, 3x10"
+                disabled={freePrompt}
+                className="w-full h-10 px-3 rounded-xl bg-white/[0.03] dark:bg-white/[0.03] border border-white/[0.08] dark:border-white/[0.08] text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 transition-all disabled:opacity-40"
               />
-              <p className="text-[10px] text-zinc-600">Format: DD-MM-YYYY (e.g., 15-06-2023)</p>
+              <p className="text-[10px] text-muted-foreground">Format: count x marks (e.g., 10x2, 5x5, 3x10)</p>
             </div>
 
-            {/* Difficulty Select */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
-                <BarChart3 className="w-3.5 h-3.5" />
-                Difficulty Level
-              </label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger className="w-full bg-white/[0.03] border-white/[0.08] text-white hover:bg-white/[0.05] transition-colors h-10 rounded-xl">
-                  <SelectValue placeholder="Select difficulty" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/[0.1]">
-                  {DIFFICULTIES.map((d) => (
-                    <SelectItem key={d} value={d} className="text-zinc-300 focus:bg-white/[0.05] focus:text-white">
-                      <span className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                          d === 'Easy' ? 'bg-green-400' : d === 'Medium' ? 'bg-yellow-400' : 'bg-red-400'
-                        }`} />
-                        {d}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator className="bg-white/[0.06]" />
+            <Separator className="bg-white/[0.06] dark:bg-white/[0.06]" />
 
             {/* Custom Prompt */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5" />
-                Custom Prompt / Instructions
+                {freePrompt ? 'Free Prompt (describe what you need)' : 'Custom Prompt / Instructions'}
               </label>
               <textarea
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Add custom instructions for the AI... e.g., 'Include more numerical problems' or 'Focus on practical applications'"
-                className="w-full h-28 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 resize-none transition-all"
+                placeholder={freePrompt
+                  ? "Describe the question paper you want... e.g., 'Generate a 75-mark Operating Systems paper for BCA 5th semester with sections A (10x2), B (5x5), C (3x10)'"
+                  : "Add custom instructions for the AI... e.g., 'Include more numerical problems' or 'Focus on practical applications'"
+                }
+                className={`w-full px-3 py-2.5 rounded-xl bg-white/[0.03] dark:bg-white/[0.03] border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500/30 resize-none transition-all ${
+                  freePrompt
+                    ? 'h-36 border-violet-500/30 ring-1 ring-violet-500/20'
+                    : 'h-24 border-white/[0.08] dark:border-white/[0.08]'
+                }`}
               />
+              {freePrompt && (
+                <p className="text-[10px] text-violet-400">Free prompt mode: Describe your paper requirements freely</p>
+              )}
             </div>
 
             {/* Generate Button */}
@@ -604,8 +769,8 @@ export default function App() {
         </ScrollArea>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-white/[0.06]">
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
+        <div className="p-4 border-t border-border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
             <span>QuestionCraft AI v2.1 • Ready</span>
           </div>

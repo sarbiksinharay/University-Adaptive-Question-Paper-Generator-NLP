@@ -127,6 +127,212 @@ def test_subjects_endpoint():
         print_result(False, f"Invalid JSON response: {str(e)}")
         return False
 
+def test_generate_endpoint_new_params():
+    """Test POST /api/generate endpoint with NEW parameters: marksDivision, questionDivision, courseCode, freePrompt, theme"""
+    print_test_header("POST /api/generate - Generate Question Paper (NEW Parameters)")
+    
+    # Test 1: Structured mode with ALL new fields
+    print("\n--- Test 1: Structured mode with ALL new fields ---")
+    try:
+        payload = {
+            "department": "SOET",
+            "course": "BCA",
+            "subject": "Operating Systems",
+            "year": "15-06-2023",
+            "difficulty": "Medium",
+            "marksDivision": 75,
+            "questionDivision": "10x2, 5x5, 3x10",
+            "courseCode": "BCA-301",
+            "freePrompt": False,
+            "customPrompt": "Focus on practical questions",
+            "theme": "dark"
+        }
+        
+        print(f"Request payload: {json.dumps(payload, indent=2)}")
+        start_time = time.time()
+        
+        response = requests.post(f"{BASE_URL}/api/generate", 
+                               json=payload, 
+                               timeout=TIMEOUT)
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        print(f"Status Code: {response.status_code}")
+        print(f"Response time: {duration:.2f} seconds")
+        print(f"Response: {response.text[:500]}..." if len(response.text) > 500 else f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Check response structure
+            if 'success' not in data or not data['success']:
+                print_result(False, "Response should have success: true")
+                return False
+            
+            if 'data' not in data:
+                print_result(False, "Response should have data field")
+                return False
+            
+            paper_data = data['data']
+            
+            # Check if ALL new fields are included in response
+            new_fields = ['marksDivision', 'questionDivision', 'courseCode', 'freePrompt', 'theme']
+            missing_fields = [field for field in new_fields if field not in paper_data]
+            
+            if missing_fields:
+                print_result(False, f"Missing new fields in response: {missing_fields}")
+                return False
+            
+            # Validate field values
+            if paper_data['marksDivision'] != 75:
+                print_result(False, f"Expected marksDivision 75, got {paper_data.get('marksDivision')}")
+                return False
+            
+            if paper_data['questionDivision'] != "10x2, 5x5, 3x10":
+                print_result(False, f"Expected questionDivision '10x2, 5x5, 3x10', got '{paper_data.get('questionDivision')}'")
+                return False
+            
+            if paper_data['courseCode'] != "BCA-301":
+                print_result(False, f"Expected courseCode 'BCA-301', got '{paper_data.get('courseCode')}'")
+                return False
+            
+            if paper_data['freePrompt'] != False:
+                print_result(False, f"Expected freePrompt False, got {paper_data.get('freePrompt')}")
+                return False
+            
+            if paper_data['theme'] != "dark":
+                print_result(False, f"Expected theme 'dark', got '{paper_data.get('theme')}'")
+                return False
+            
+            # Check if delay was applied (should be around 2 seconds)
+            if duration < 1.8:
+                print_result(False, f"Expected ~2s delay, got {duration:.2f}s")
+                return False
+            
+            print_result(True, "Generate endpoint with ALL new fields working correctly")
+        else:
+            print_result(False, f"Expected status 200, got {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print_result(False, f"Request failed: {str(e)}")
+        return False
+    except json.JSONDecodeError as e:
+        print_result(False, f"Invalid JSON response: {str(e)}")
+        return False
+    
+    # Test 2: Free prompt mode
+    print("\n--- Test 2: Free prompt mode ---")
+    try:
+        payload = {
+            "freePrompt": True,
+            "customPrompt": "Generate a 75-mark Operating Systems paper",
+            "marksDivision": 50,
+            "theme": "light"
+        }
+        
+        print(f"Request payload: {json.dumps(payload, indent=2)}")
+        start_time = time.time()
+        
+        response = requests.post(f"{BASE_URL}/api/generate", 
+                               json=payload, 
+                               timeout=TIMEOUT)
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        print(f"Status Code: {response.status_code}")
+        print(f"Response time: {duration:.2f} seconds")
+        print(f"Response: {response.text[:500]}..." if len(response.text) > 500 else f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'success' not in data or not data['success']:
+                print_result(False, "Response should have success: true")
+                return False
+            
+            if 'data' not in data:
+                print_result(False, "Response should have data field")
+                return False
+            
+            paper_data = data['data']
+            
+            # Verify response returns paper data even without department/course
+            if 'freePrompt' not in paper_data or paper_data['freePrompt'] != True:
+                print_result(False, f"Expected freePrompt True, got {paper_data.get('freePrompt')}")
+                return False
+            
+            if 'marksDivision' not in paper_data or paper_data['marksDivision'] != 50:
+                print_result(False, f"Expected marksDivision 50, got {paper_data.get('marksDivision')}")
+                return False
+            
+            if 'theme' not in paper_data or paper_data['theme'] != "light":
+                print_result(False, f"Expected theme 'light', got '{paper_data.get('theme')}'")
+                return False
+            
+            # Should still have basic paper structure
+            if 'sections' not in paper_data:
+                print_result(False, "Paper data should have sections even in free prompt mode")
+                return False
+            
+            print_result(True, "Generate endpoint free prompt mode working correctly")
+        else:
+            print_result(False, f"Expected status 200, got {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print_result(False, f"Request failed: {str(e)}")
+        return False
+    except json.JSONDecodeError as e:
+        print_result(False, f"Invalid JSON response: {str(e)}")
+        return False
+    
+    # Test 3: Validation - marks division boundaries
+    print("\n--- Test 3: Validation - marks division boundaries (100) ---")
+    try:
+        payload = {
+            "department": "SOBE",
+            "course": "MBA",
+            "marksDivision": 100,
+            "freePrompt": False
+        }
+        
+        print(f"Request payload: {json.dumps(payload, indent=2)}")
+        
+        response = requests.post(f"{BASE_URL}/api/generate", 
+                               json=payload, 
+                               timeout=TIMEOUT)
+        
+        print(f"Status Code: {response.status_code}")
+        print(f"Response: {response.text[:300]}..." if len(response.text) > 300 else f"Response: {response.text}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get('success') and 'data' in data:
+                paper_data = data['data']
+                
+                # Verify marksDivision: 100 is accepted
+                if 'marksDivision' not in paper_data or paper_data['marksDivision'] != 100:
+                    print_result(False, f"Expected marksDivision 100, got {paper_data.get('marksDivision')}")
+                    return False
+                
+                print_result(True, "Generate endpoint accepts marksDivision: 100 correctly")
+            else:
+                print_result(False, "Invalid response structure")
+                return False
+        else:
+            print_result(False, f"Expected status 200, got {response.status_code}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print_result(False, f"Request failed: {str(e)}")
+        return False
+    
+    return True
+
 def test_generate_endpoint():
     """Test POST /api/generate endpoint with new course field"""
     print_test_header("POST /api/generate - Generate Question Paper (Updated with Course Field)")
@@ -515,7 +721,8 @@ def main():
     # Run all tests
     test_results.append(("Health Endpoint", test_health_endpoint()))
     test_results.append(("Subjects Endpoint", test_subjects_endpoint()))
-    test_results.append(("Generate Endpoint", test_generate_endpoint()))
+    test_results.append(("Generate Endpoint (Original)", test_generate_endpoint()))
+    test_results.append(("Generate Endpoint (NEW Parameters)", test_generate_endpoint_new_params()))
     test_results.append(("Inject Endpoint", test_inject_endpoint()))
     
     # Print summary
