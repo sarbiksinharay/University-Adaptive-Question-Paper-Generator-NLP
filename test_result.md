@@ -102,31 +102,104 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Build an interactive frontend dashboard for an AI-powered Question Paper Generator with dark mode, glassmorphism, sidebar controls, paper renderer, and developer panel"
+user_problem_statement: "Enterprise-grade document ingestion pipeline, local Vector DB, and RAG generation for AI Question Paper Generator"
 
 backend:
-  - task: "GET /api/health - Health check endpoint"
+  - task: "GET /api/health - Health check"
     implemented: true
     working: true
     file: "app/api/[[...path]]/route.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
+
+  - task: "POST /api/ingest/upload - File upload ingestion (PDF, DOCX, CSV, PNG)"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Implemented health check endpoint returning status and timestamp"
-      - working: true
-        agent: "testing"
-        comment: "✅ TESTED: Health endpoint working correctly. Returns proper JSON with status:'ok', message, and valid ISO timestamp. Response time < 1s."
+        comment: "Accepts multipart/form-data file upload. Extracts text using pdf-parse, mammoth, papaparse, tesseract.js. Auto-chunks and adds to TF-IDF vector store."
 
-  - task: "GET /api/subjects - Get available departments, subjects, years, difficulties"
+  - task: "POST /api/ingest/directory - Directory scan ingestion"
     implemented: true
-    working: true
+    working: "NA"
     file: "app/api/[[...path]]/route.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Accepts directory_path. Scans recursively for supported files. Processes in background with queue."
+
+  - task: "GET /api/ingest/status - Processing queue status"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+
+  - task: "POST /api/generate-paper - RAG generation endpoint"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Uses RAG pipeline when vector store has data. Falls back to direct LLM generation. Uses Python bridge with emergentintegrations for LLM calls."
+
+  - task: "POST /api/feedback - Feedback endpoint"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Validates questionId, professorId, isLiked (bool), feedbackReason. Adds to vector store for future RAG."
+
+  - task: "POST /api/vector-store/search - Search vector store"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+
+  - task: "GET /api/vector-store/stats - Vector store statistics"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+
+  - task: "POST /api/generate - Mock generate (legacy 2s delay)"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+
+  - task: "POST /api/inject - JSON injection (developer panel)"
+    implemented: true
+    working: "NA"
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
@@ -228,10 +301,4 @@ test_plan:
 
 agent_communication:
   - agent: "main"
-    message: "Full dashboard built. All 4 API endpoints implemented with mock data. Frontend has sidebar with dropdowns, paper renderer, dev panel. Please test all backend endpoints. The base URL is https://question-craft-8.preview.emergentagent.com. API endpoints are /api/health, /api/subjects, /api/generate (POST with body {department, subject, year, difficulty, customPrompt}), /api/inject (POST with body {jsonData: {...}})"
-  - agent: "testing"
-    message: "✅ BACKEND TESTING COMPLETE: All 4 API endpoints tested and working correctly. Health endpoint returns proper status/timestamp. Subjects endpoint returns all required dropdown data. Generate endpoint works with 2s delay for both Operating Systems and Data Structures subjects, handles missing fields gracefully. Inject endpoint properly validates JSON and handles errors. No critical issues found. All endpoints ready for frontend integration."
-  - agent: "testing"
-    message: "✅ UPDATED GENERATE ENDPOINT TESTING COMPLETE: Successfully tested the updated POST /api/generate endpoint with new 'course' field. Test cases: 1) SOET/BCA Operating Systems with course field properly returned, 2) SOBE/MBA with empty fields handled correctly, 3) Backward compatibility confirmed. All tests show proper 2s delay. Health and inject endpoints also verified working. All backend APIs functioning correctly with course field integration."
-  - agent: "testing"
-    message: "✅ NEW PARAMETERS TESTING COMPLETE: Successfully tested POST /api/generate with ALL new parameters (marksDivision, questionDivision, courseCode, freePrompt, theme). All 3 test scenarios passed: 1) Structured mode with all new fields - all parameters returned correctly, 2) Free prompt mode - works without department/course, 3) Validation boundaries - marksDivision: 100 accepted. All tests maintain proper 2s delay. Backend fully supports new parameter requirements."
+    message: "Enterprise-grade backend built: document ingestion (upload + directory scan), TF-IDF vector store, RAG generation via Python LLM bridge, feedback endpoint. Base URL: https://question-craft-8.preview.emergentagent.com. New endpoints: POST /api/ingest/upload (multipart file), POST /api/ingest/directory (JSON directory_path), GET /api/ingest/status, POST /api/generate-paper (RAG), POST /api/feedback (JSON: questionId,professorId,isLiked,feedbackReason), GET /api/vector-store/stats, POST /api/vector-store/search (JSON: query,topK), POST /api/vector-store/clear, POST /api/generate (legacy mock). Note: /api/generate-paper calls LLM and may take 10-30s. Set timeout to 90s for testing."

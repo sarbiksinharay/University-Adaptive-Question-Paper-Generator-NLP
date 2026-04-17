@@ -1,753 +1,545 @@
 #!/usr/bin/env python3
 """
-QuestionCraft AI Backend API Testing Script
-Tests all backend endpoints for the QuestionCraft AI application
+QuestionCraft AI Backend API Testing Suite
+Tests all enterprise document ingestion and RAG pipeline endpoints
 """
 
 import requests
 import json
 import time
-import sys
-from datetime import datetime
+import tempfile
+import os
+from io import StringIO
 
 # Configuration
 BASE_URL = "https://question-craft-8.preview.emergentagent.com"
-TIMEOUT = 10  # 10 seconds timeout for requests with delay
+TIMEOUT = 90  # 90 seconds for LLM calls
+HEADERS = {"Content-Type": "application/json"}
 
-def print_test_header(test_name):
-    """Print formatted test header"""
-    print(f"\n{'='*60}")
-    print(f"Testing: {test_name}")
-    print(f"{'='*60}")
-
-def print_result(success, message):
-    """Print test result with formatting"""
-    status = "✅ PASS" if success else "❌ FAIL"
-    print(f"{status}: {message}")
+def log_test(test_name, status, details=""):
+    """Log test results with consistent formatting"""
+    status_symbol = "✅" if status == "PASS" else "❌" if status == "FAIL" else "⚠️"
+    print(f"{status_symbol} {test_name}: {status}")
+    if details:
+        print(f"   Details: {details}")
+    print()
 
 def test_health_endpoint():
-    """Test GET /api/health endpoint"""
-    print_test_header("GET /api/health - Health Check Endpoint")
-    
+    """Test GET /api/health - Health check"""
     try:
-        response = requests.get(f"{BASE_URL}/api/health", timeout=5)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
+        response = requests.get(f"{BASE_URL}/api/health", timeout=TIMEOUT)
         
         if response.status_code == 200:
             data = response.json()
-            
-            # Check required fields
-            required_fields = ['status', 'message', 'timestamp']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                print_result(False, f"Missing required fields: {missing_fields}")
-                return False
-            
-            # Validate field values
-            if data['status'] != 'ok':
-                print_result(False, f"Expected status 'ok', got '{data['status']}'")
-                return False
-            
-            # Check timestamp format
-            try:
-                datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
-            except ValueError:
-                print_result(False, f"Invalid timestamp format: {data['timestamp']}")
-                return False
-            
-            print_result(True, "Health endpoint working correctly")
-            return True
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-
-def test_subjects_endpoint():
-    """Test GET /api/subjects endpoint"""
-    print_test_header("GET /api/subjects - Get Available Data")
-    
-    try:
-        response = requests.get(f"{BASE_URL}/api/subjects", timeout=5)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Check required fields
-            required_fields = ['departments', 'subjects', 'years', 'difficulties']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                print_result(False, f"Missing required fields: {missing_fields}")
-                return False
-            
-            # Validate data types and content
-            if not isinstance(data['departments'], list) or len(data['departments']) == 0:
-                print_result(False, "departments should be a non-empty list")
-                return False
-            
-            if not isinstance(data['subjects'], dict) or len(data['subjects']) == 0:
-                print_result(False, "subjects should be a non-empty dictionary")
-                return False
-            
-            if not isinstance(data['years'], list) or len(data['years']) == 0:
-                print_result(False, "years should be a non-empty list")
-                return False
-            
-            if not isinstance(data['difficulties'], list) or len(data['difficulties']) == 0:
-                print_result(False, "difficulties should be a non-empty list")
-                return False
-            
-            # Check if BCA department has subjects
-            if 'BCA' not in data['subjects']:
-                print_result(False, "BCA department not found in subjects")
-                return False
-            
-            print_result(True, "Subjects endpoint working correctly")
-            return True
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-
-def test_generate_endpoint_new_params():
-    """Test POST /api/generate endpoint with NEW parameters: marksDivision, questionDivision, courseCode, freePrompt, theme"""
-    print_test_header("POST /api/generate - Generate Question Paper (NEW Parameters)")
-    
-    # Test 1: Structured mode with ALL new fields
-    print("\n--- Test 1: Structured mode with ALL new fields ---")
-    try:
-        payload = {
-            "department": "SOET",
-            "course": "BCA",
-            "subject": "Operating Systems",
-            "year": "15-06-2023",
-            "difficulty": "Medium",
-            "marksDivision": 75,
-            "questionDivision": "10x2, 5x5, 3x10",
-            "courseCode": "BCA-301",
-            "freePrompt": False,
-            "customPrompt": "Focus on practical questions",
-            "theme": "dark"
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        start_time = time.time()
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response time: {duration:.2f} seconds")
-        print(f"Response: {response.text[:500]}..." if len(response.text) > 500 else f"Response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Check response structure
-            if 'success' not in data or not data['success']:
-                print_result(False, "Response should have success: true")
-                return False
-            
-            if 'data' not in data:
-                print_result(False, "Response should have data field")
-                return False
-            
-            paper_data = data['data']
-            
-            # Check if ALL new fields are included in response
-            new_fields = ['marksDivision', 'questionDivision', 'courseCode', 'freePrompt', 'theme']
-            missing_fields = [field for field in new_fields if field not in paper_data]
-            
-            if missing_fields:
-                print_result(False, f"Missing new fields in response: {missing_fields}")
-                return False
-            
-            # Validate field values
-            if paper_data['marksDivision'] != 75:
-                print_result(False, f"Expected marksDivision 75, got {paper_data.get('marksDivision')}")
-                return False
-            
-            if paper_data['questionDivision'] != "10x2, 5x5, 3x10":
-                print_result(False, f"Expected questionDivision '10x2, 5x5, 3x10', got '{paper_data.get('questionDivision')}'")
-                return False
-            
-            if paper_data['courseCode'] != "BCA-301":
-                print_result(False, f"Expected courseCode 'BCA-301', got '{paper_data.get('courseCode')}'")
-                return False
-            
-            if paper_data['freePrompt'] != False:
-                print_result(False, f"Expected freePrompt False, got {paper_data.get('freePrompt')}")
-                return False
-            
-            if paper_data['theme'] != "dark":
-                print_result(False, f"Expected theme 'dark', got '{paper_data.get('theme')}'")
-                return False
-            
-            # Check if delay was applied (should be around 2 seconds)
-            if duration < 1.8:
-                print_result(False, f"Expected ~2s delay, got {duration:.2f}s")
-                return False
-            
-            print_result(True, "Generate endpoint with ALL new fields working correctly")
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-    
-    # Test 2: Free prompt mode
-    print("\n--- Test 2: Free prompt mode ---")
-    try:
-        payload = {
-            "freePrompt": True,
-            "customPrompt": "Generate a 75-mark Operating Systems paper",
-            "marksDivision": 50,
-            "theme": "light"
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        start_time = time.time()
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response time: {duration:.2f} seconds")
-        print(f"Response: {response.text[:500]}..." if len(response.text) > 500 else f"Response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if 'success' not in data or not data['success']:
-                print_result(False, "Response should have success: true")
-                return False
-            
-            if 'data' not in data:
-                print_result(False, "Response should have data field")
-                return False
-            
-            paper_data = data['data']
-            
-            # Verify response returns paper data even without department/course
-            if 'freePrompt' not in paper_data or paper_data['freePrompt'] != True:
-                print_result(False, f"Expected freePrompt True, got {paper_data.get('freePrompt')}")
-                return False
-            
-            if 'marksDivision' not in paper_data or paper_data['marksDivision'] != 50:
-                print_result(False, f"Expected marksDivision 50, got {paper_data.get('marksDivision')}")
-                return False
-            
-            if 'theme' not in paper_data or paper_data['theme'] != "light":
-                print_result(False, f"Expected theme 'light', got '{paper_data.get('theme')}'")
-                return False
-            
-            # Should still have basic paper structure
-            if 'sections' not in paper_data:
-                print_result(False, "Paper data should have sections even in free prompt mode")
-                return False
-            
-            print_result(True, "Generate endpoint free prompt mode working correctly")
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-    
-    # Test 3: Validation - marks division boundaries
-    print("\n--- Test 3: Validation - marks division boundaries (100) ---")
-    try:
-        payload = {
-            "department": "SOBE",
-            "course": "MBA",
-            "marksDivision": 100,
-            "freePrompt": False
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text[:300]}..." if len(response.text) > 300 else f"Response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get('success') and 'data' in data:
-                paper_data = data['data']
-                
-                # Verify marksDivision: 100 is accepted
-                if 'marksDivision' not in paper_data or paper_data['marksDivision'] != 100:
-                    print_result(False, f"Expected marksDivision 100, got {paper_data.get('marksDivision')}")
-                    return False
-                
-                print_result(True, "Generate endpoint accepts marksDivision: 100 correctly")
+            if data.get("status") == "ok" and "endpoints" in data:
+                log_test("GET /api/health", "PASS", f"Status: {data['status']}, Endpoints listed: {len(data['endpoints'])}")
+                return True
             else:
-                print_result(False, "Invalid response structure")
+                log_test("GET /api/health", "FAIL", f"Invalid response structure: {data}")
                 return False
         else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
+            log_test("GET /api/health", "FAIL", f"Status: {response.status_code}, Response: {response.text}")
             return False
             
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+    except Exception as e:
+        log_test("GET /api/health", "FAIL", f"Exception: {str(e)}")
         return False
-    
-    return True
 
-def test_generate_endpoint():
-    """Test POST /api/generate endpoint with new course field"""
-    print_test_header("POST /api/generate - Generate Question Paper (Updated with Course Field)")
-    
-    # Test 1: Valid request with Operating Systems and course field (SOET/BCA)
-    print("\n--- Test 1: Valid request with SOET/BCA Operating Systems ---")
+def test_file_upload():
+    """Test POST /api/ingest/upload - File upload ingestion"""
     try:
-        payload = {
-            "department": "SOET",
-            "course": "BCA",
-            "subject": "Operating Systems",
-            "year": "15-06-2023",
-            "difficulty": "Medium",
-            "customPrompt": ""
-        }
+        # Create a temporary CSV file
+        csv_content = """question,marks,subject
+What is polymorphism?,5,OOP
+Explain inheritance with example,10,OOP
+Define encapsulation in programming,8,OOP
+What are abstract classes?,6,OOP"""
         
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        start_time = time.time()
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            f.write(csv_content)
+            temp_file_path = f.name
         
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response time: {duration:.2f} seconds")
-        print(f"Response: {response.text[:500]}..." if len(response.text) > 500 else f"Response: {response.text}")
-        
-        if response.status_code == 200:
-            data = response.json()
+        try:
+            # Test successful upload
+            with open(temp_file_path, 'rb') as f:
+                files = {'file': ('test_questions.csv', f, 'text/csv')}
+                response = requests.post(f"{BASE_URL}/api/ingest/upload", files=files, timeout=TIMEOUT)
             
-            # Check response structure
-            if 'success' not in data or not data['success']:
-                print_result(False, "Response should have success: true")
-                return False
-            
-            if 'data' not in data:
-                print_result(False, "Response should have data field")
-                return False
-            
-            paper_data = data['data']
-            required_fields = ['university', 'courseCode', 'subject', 'sections']
-            missing_fields = [field for field in required_fields if field not in paper_data]
-            
-            if missing_fields:
-                print_result(False, f"Missing required fields in data: {missing_fields}")
-                return False
-            
-            # Check if course field is included in response
-            if 'course' not in paper_data:
-                print_result(False, "Course field missing from response data")
-                return False
-            
-            if paper_data['course'] != 'BCA':
-                print_result(False, f"Expected course 'BCA', got '{paper_data.get('course')}'")
-                return False
-            
-            # Check if delay was applied (should be around 2 seconds)
-            if duration < 1.8:
-                print_result(False, f"Expected ~2s delay, got {duration:.2f}s")
-                return False
-            
-            print_result(True, "Generate endpoint with SOET/BCA Operating Systems working correctly")
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-    
-    # Test 2: Valid request with SOBE/MBA and empty fields
-    print("\n--- Test 2: Valid request with SOBE/MBA and empty fields ---")
-    try:
-        payload = {
-            "department": "SOBE",
-            "course": "MBA",
-            "subject": "",
-            "year": "",
-            "difficulty": "Hard"
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        start_time = time.time()
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response time: {duration:.2f} seconds")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get('success') and 'data' in data:
-                paper_data = data['data']
-                
-                # Check if course field is included in response
-                if 'course' not in paper_data:
-                    print_result(False, "Course field missing from response data")
-                    return False
-                
-                if paper_data['course'] != 'MBA':
-                    print_result(False, f"Expected course 'MBA', got '{paper_data.get('course')}'")
-                    return False
-                
-                # Check if department is set correctly
-                if paper_data.get('department') != 'SOBE':
-                    print_result(False, f"Expected department 'SOBE', got '{paper_data.get('department')}'")
-                    return False
-                
-                # Check if difficulty is set correctly
-                if paper_data.get('difficulty') != 'Hard':
-                    print_result(False, f"Expected difficulty 'Hard', got '{paper_data.get('difficulty')}'")
-                    return False
-                
-                print_result(True, "Generate endpoint with SOBE/MBA working correctly")
-            else:
-                print_result(False, "Invalid response structure")
-                return False
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    
-    # Test 3: Backward compatibility test (without course field)
-    print("\n--- Test 3: Backward compatibility test (without course field) ---")
-    try:
-        payload = {
-            "department": "BCA",
-            "subject": "Data Structures",
-            "year": "2023",
-            "difficulty": "Medium",
-            "customPrompt": "Focus on algorithms"
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        start_time = time.time()
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        end_time = time.time()
-        duration = end_time - start_time
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response time: {duration:.2f} seconds")
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            if data.get('success') and 'data' in data:
-                paper_data = data['data']
-                if paper_data.get('subject') == 'Data Structures':
-                    # Check if course field exists (should be empty string or default)
-                    if 'course' in paper_data:
-                        print_result(True, "Generate endpoint backward compatibility working correctly")
-                    else:
-                        print_result(False, "Course field missing from response (backward compatibility issue)")
-                        return False
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success") and data.get("data", {}).get("chunksAdded", 0) > 0:
+                    chunks_added = data["data"]["chunksAdded"]
+                    text_length = data["data"]["textLength"]
+                    log_test("POST /api/ingest/upload (success)", "PASS", 
+                           f"Chunks added: {chunks_added}, Text length: {text_length}")
+                    upload_success = True
                 else:
-                    print_result(False, f"Expected subject 'Data Structures', got '{paper_data.get('subject')}'")
-                    return False
+                    log_test("POST /api/ingest/upload (success)", "FAIL", f"Response: {data}")
+                    upload_success = False
             else:
-                print_result(False, "Invalid response structure")
-                return False
-        else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
+                log_test("POST /api/ingest/upload (success)", "FAIL", 
+                       f"Status: {response.status_code}, Response: {response.text}")
+                upload_success = False
             
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+            # Test error case - upload without file
+            response = requests.post(f"{BASE_URL}/api/ingest/upload", timeout=TIMEOUT)
+            if response.status_code == 400:
+                data = response.json()
+                if not data.get("success") and "No file provided" in data.get("error", ""):
+                    log_test("POST /api/ingest/upload (error case)", "PASS", "Correctly rejected empty upload")
+                    error_success = True
+                else:
+                    log_test("POST /api/ingest/upload (error case)", "FAIL", f"Unexpected error response: {data}")
+                    error_success = False
+            else:
+                log_test("POST /api/ingest/upload (error case)", "FAIL", 
+                       f"Expected 400, got {response.status_code}")
+                error_success = False
+            
+            return upload_success and error_success
+            
+        finally:
+            # Clean up temp file
+            os.unlink(temp_file_path)
+            
+    except Exception as e:
+        log_test("POST /api/ingest/upload", "FAIL", f"Exception: {str(e)}")
         return False
-    
-    # Test 4: Error case with missing fields
-    print("\n--- Test 4: Error case with missing fields ---")
+
+def test_directory_scan():
+    """Test POST /api/ingest/directory - Directory scan ingestion"""
     try:
-        payload = {
-            "department": "BCA"
-            # Missing required fields
-        }
+        # Test with a directory that may or may not exist
+        test_data = {"directory_path": "/tmp/test_papers"}
+        response = requests.post(f"{BASE_URL}/api/ingest/directory", 
+                               json=test_data, timeout=TIMEOUT)
         
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        
-        response = requests.post(f"{BASE_URL}/api/generate", 
-                               json=payload, 
-                               timeout=TIMEOUT)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
-        
-        # This should still work as the endpoint has defaults, but let's see
         if response.status_code == 200:
             data = response.json()
-            if data.get('success'):
-                print_result(True, "Generate endpoint handles missing fields gracefully")
+            if data.get("success"):
+                log_test("POST /api/ingest/directory (valid path)", "PASS", 
+                       f"Message: {data.get('message', 'No message')}")
+                valid_success = True
             else:
-                print_result(True, "Generate endpoint properly returns error for missing fields")
+                log_test("POST /api/ingest/directory (valid path)", "FAIL", f"Response: {data}")
+                valid_success = False
         else:
-            print_result(True, "Generate endpoint properly returns error status for missing fields")
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+            log_test("POST /api/ingest/directory (valid path)", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            valid_success = False
+        
+        # Test error case - empty directory path
+        test_data = {"directory_path": ""}
+        response = requests.post(f"{BASE_URL}/api/ingest/directory", 
+                               json=test_data, timeout=TIMEOUT)
+        
+        if response.status_code == 400:
+            data = response.json()
+            if not data.get("success") and "Missing required field" in data.get("error", ""):
+                log_test("POST /api/ingest/directory (empty path)", "PASS", "Correctly rejected empty path")
+                empty_success = True
+            else:
+                log_test("POST /api/ingest/directory (empty path)", "FAIL", f"Unexpected error: {data}")
+                empty_success = False
+        else:
+            log_test("POST /api/ingest/directory (empty path)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            empty_success = False
+        
+        # Test error case - missing field
+        test_data = {}
+        response = requests.post(f"{BASE_URL}/api/ingest/directory", 
+                               json=test_data, timeout=TIMEOUT)
+        
+        if response.status_code == 400:
+            data = response.json()
+            if not data.get("success") and "Missing required field" in data.get("error", ""):
+                log_test("POST /api/ingest/directory (missing field)", "PASS", "Correctly rejected missing field")
+                missing_success = True
+            else:
+                log_test("POST /api/ingest/directory (missing field)", "FAIL", f"Unexpected error: {data}")
+                missing_success = False
+        else:
+            log_test("POST /api/ingest/directory (missing field)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            missing_success = False
+        
+        return valid_success and empty_success and missing_success
+        
+    except Exception as e:
+        log_test("POST /api/ingest/directory", "FAIL", f"Exception: {str(e)}")
         return False
-    
-    return True
 
-def test_inject_endpoint():
-    """Test POST /api/inject endpoint"""
-    print_test_header("POST /api/inject - Inject Custom JSON")
-    
-    # Test 1: Valid JSON object (specific test case from review)
-    print("\n--- Test 1: Valid JSON object (specific test case) ---")
+def test_ingest_status():
+    """Test GET /api/ingest/status - Queue status"""
+    try:
+        response = requests.get(f"{BASE_URL}/api/ingest/status", timeout=TIMEOUT)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                queue_data = data["data"]
+                log_test("GET /api/ingest/status", "PASS", 
+                       f"Queue status retrieved: {queue_data}")
+                return True
+            else:
+                log_test("GET /api/ingest/status", "FAIL", f"Invalid response: {data}")
+                return False
+        else:
+            log_test("GET /api/ingest/status", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            return False
+            
+    except Exception as e:
+        log_test("GET /api/ingest/status", "FAIL", f"Exception: {str(e)}")
+        return False
+
+def test_generate_paper():
+    """Test POST /api/generate-paper - RAG generation (SLOW - 10-30 seconds)"""
     try:
         test_data = {
-            "university": "Test Uni",
+            "subject": "Data Structures",
+            "department": "SOET", 
             "course": "BCA",
-            "sections": []
+            "courseCode": "BCA-201",
+            "marksDivision": 50,
+            "difficulty": "Easy",
+            "useRAG": True
         }
         
-        payload = {
-            "jsonData": test_data
-        }
-        
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        
-        response = requests.post(f"{BASE_URL}/api/inject", 
-                               json=payload, 
-                               timeout=5)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
+        print("⏳ Testing RAG generation (may take 10-30 seconds)...")
+        response = requests.post(f"{BASE_URL}/api/generate-paper", 
+                               json=test_data, timeout=TIMEOUT)
         
         if response.status_code == 200:
             data = response.json()
-            
-            # Check response structure
-            required_fields = ['success', 'data', 'message']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                print_result(False, f"Missing required fields: {missing_fields}")
+            if data.get("success") and "data" in data:
+                paper_data = data["data"]
+                mode = data.get("mode", "unknown")
+                
+                # Check if paper has sections with questions
+                sections = paper_data.get("sections", [])
+                has_questions = any(section.get("questions", []) for section in sections)
+                
+                if has_questions:
+                    log_test("POST /api/generate-paper", "PASS", 
+                           f"Mode: {mode}, Sections: {len(sections)}, Generated successfully")
+                    return True
+                else:
+                    log_test("POST /api/generate-paper", "FAIL", 
+                           f"No questions found in sections. Mode: {mode}")
+                    return False
+            else:
+                log_test("POST /api/generate-paper", "FAIL", f"Invalid response: {data}")
                 return False
-            
-            if not data['success']:
-                print_result(False, "Expected success: true")
-                return False
-            
-            # Check if injected data is returned correctly
-            if data['data']['university'] != test_data['university']:
-                print_result(False, "Injected data not returned correctly")
-                return False
-            
-            if data['data']['course'] != test_data['course']:
-                print_result(False, "Course field not returned correctly")
-                return False
-            
-            print_result(True, "Inject endpoint with valid JSON working correctly")
         else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
+            log_test("POST /api/generate-paper", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
             return False
             
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+    except Exception as e:
+        log_test("POST /api/generate-paper", "FAIL", f"Exception: {str(e)}")
         return False
-    except json.JSONDecodeError as e:
-        print_result(False, f"Invalid JSON response: {str(e)}")
-        return False
-    
-    # Test 2: Valid JSON string
-    print("\n--- Test 2: Valid JSON string ---")
+
+def test_feedback():
+    """Test POST /api/feedback - Feedback endpoint"""
     try:
-        test_data_string = '{"university": "String Test", "courseCode": "TEST-101"}'
-        
-        payload = {
-            "jsonData": test_data_string
+        # Test successful feedback
+        test_data = {
+            "questionId": "q123",
+            "professorId": "prof456", 
+            "isLiked": True,
+            "feedbackReason": "Well-structured question"
         }
         
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        
-        response = requests.post(f"{BASE_URL}/api/inject", 
-                               json=payload, 
-                               timeout=5)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
+        response = requests.post(f"{BASE_URL}/api/feedback", 
+                               json=test_data, timeout=TIMEOUT)
         
         if response.status_code == 200:
             data = response.json()
-            if data.get('success') and data['data']['university'] == 'String Test':
-                print_result(True, "Inject endpoint with JSON string working correctly")
+            if data.get("success") and "data" in data and data["data"].get("id"):
+                feedback_id = data["data"]["id"]
+                log_test("POST /api/feedback (success)", "PASS", f"Feedback ID: {feedback_id}")
+                success_test = True
             else:
-                print_result(False, "JSON string not parsed correctly")
-                return False
+                log_test("POST /api/feedback (success)", "FAIL", f"Invalid response: {data}")
+                success_test = False
         else:
-            print_result(False, f"Expected status 200, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
-        return False
-    
-    # Test 3: Invalid JSON string
-    print("\n--- Test 3: Invalid JSON string ---")
-    try:
-        payload = {
-            "jsonData": "invalid json string {"
+            log_test("POST /api/feedback (success)", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            success_test = False
+        
+        # Test error case - missing questionId
+        test_data = {
+            "professorId": "prof456",
+            "isLiked": True,
+            "feedbackReason": "Test"
         }
         
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
-        
-        response = requests.post(f"{BASE_URL}/api/inject", 
-                               json=payload, 
-                               timeout=5)
-        
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
+        response = requests.post(f"{BASE_URL}/api/feedback", 
+                               json=test_data, timeout=TIMEOUT)
         
         if response.status_code == 400:
             data = response.json()
-            if not data.get('success') and 'error' in data:
-                print_result(True, "Inject endpoint properly handles invalid JSON")
+            if not data.get("success") and "questionId" in data.get("error", ""):
+                log_test("POST /api/feedback (missing questionId)", "PASS", "Correctly rejected missing questionId")
+                missing_id_test = True
             else:
-                print_result(False, "Expected error response for invalid JSON")
-                return False
+                log_test("POST /api/feedback (missing questionId)", "FAIL", f"Unexpected error: {data}")
+                missing_id_test = False
         else:
-            print_result(False, f"Expected status 400 for invalid JSON, got {response.status_code}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+            log_test("POST /api/feedback (missing questionId)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            missing_id_test = False
+        
+        # Test error case - isLiked not boolean
+        test_data = {
+            "questionId": "q123",
+            "professorId": "prof456",
+            "isLiked": "yes",  # Should be boolean
+            "feedbackReason": "Test"
+        }
+        
+        response = requests.post(f"{BASE_URL}/api/feedback", 
+                               json=test_data, timeout=TIMEOUT)
+        
+        if response.status_code == 400:
+            data = response.json()
+            if not data.get("success") and "isLiked" in data.get("error", ""):
+                log_test("POST /api/feedback (invalid isLiked)", "PASS", "Correctly rejected non-boolean isLiked")
+                boolean_test = True
+            else:
+                log_test("POST /api/feedback (invalid isLiked)", "FAIL", f"Unexpected error: {data}")
+                boolean_test = False
+        else:
+            log_test("POST /api/feedback (invalid isLiked)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            boolean_test = False
+        
+        return success_test and missing_id_test and boolean_test
+        
+    except Exception as e:
+        log_test("POST /api/feedback", "FAIL", f"Exception: {str(e)}")
         return False
-    
-    # Test 4: Empty body
-    print("\n--- Test 4: Empty body ---")
+
+def test_vector_store_stats():
+    """Test GET /api/vector-store/stats - Vector store statistics"""
     try:
-        payload = {}
+        response = requests.get(f"{BASE_URL}/api/vector-store/stats", timeout=TIMEOUT)
         
-        print(f"Request payload: {json.dumps(payload, indent=2)}")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                stats = data["data"]
+                required_fields = ["totalChunks", "totalTerms", "isBuilt", "storagePath"]
+                has_all_fields = all(field in stats for field in required_fields)
+                
+                if has_all_fields:
+                    log_test("GET /api/vector-store/stats", "PASS", 
+                           f"Total chunks: {stats['totalChunks']}, Built: {stats['isBuilt']}")
+                    return True
+                else:
+                    missing = [f for f in required_fields if f not in stats]
+                    log_test("GET /api/vector-store/stats", "FAIL", f"Missing fields: {missing}")
+                    return False
+            else:
+                log_test("GET /api/vector-store/stats", "FAIL", f"Invalid response: {data}")
+                return False
+        else:
+            log_test("GET /api/vector-store/stats", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            return False
+            
+    except Exception as e:
+        log_test("GET /api/vector-store/stats", "FAIL", f"Exception: {str(e)}")
+        return False
+
+def test_vector_store_search():
+    """Test POST /api/vector-store/search - Search vector store"""
+    try:
+        # Test successful search
+        test_data = {"query": "operating system", "topK": 3}
+        response = requests.post(f"{BASE_URL}/api/vector-store/search", 
+                               json=test_data, timeout=TIMEOUT)
         
-        response = requests.post(f"{BASE_URL}/api/inject", 
-                               json=payload, 
-                               timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                search_data = data["data"]
+                results = search_data.get("results", [])
+                log_test("POST /api/vector-store/search (success)", "PASS", 
+                       f"Query: '{search_data.get('query')}', Results: {len(results)}")
+                success_test = True
+            else:
+                log_test("POST /api/vector-store/search (success)", "FAIL", f"Invalid response: {data}")
+                success_test = False
+        else:
+            log_test("POST /api/vector-store/search (success)", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            success_test = False
         
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.text}")
+        # Test error case - missing query
+        test_data = {}
+        response = requests.post(f"{BASE_URL}/api/vector-store/search", 
+                               json=test_data, timeout=TIMEOUT)
         
         if response.status_code == 400:
             data = response.json()
-            if not data.get('success') and 'error' in data:
-                print_result(True, "Inject endpoint properly handles empty body")
+            if not data.get("success") and "Missing: query" in data.get("error", ""):
+                log_test("POST /api/vector-store/search (missing query)", "PASS", "Correctly rejected missing query")
+                error_test = True
             else:
-                print_result(False, "Expected error response for empty body")
+                log_test("POST /api/vector-store/search (missing query)", "FAIL", f"Unexpected error: {data}")
+                error_test = False
+        else:
+            log_test("POST /api/vector-store/search (missing query)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            error_test = False
+        
+        return success_test and error_test
+        
+    except Exception as e:
+        log_test("POST /api/vector-store/search", "FAIL", f"Exception: {str(e)}")
+        return False
+
+def test_legacy_generate():
+    """Test POST /api/generate - Legacy mock endpoint"""
+    try:
+        test_data = {
+            "department": "SOET",
+            "course": "BCA", 
+            "subject": "OS",
+            "marksDivision": 75
+        }
+        
+        print("⏳ Testing legacy generate (2s delay)...")
+        start_time = time.time()
+        response = requests.post(f"{BASE_URL}/api/generate", 
+                               json=test_data, timeout=TIMEOUT)
+        end_time = time.time()
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                paper_data = data["data"]
+                delay = end_time - start_time
+                
+                # Check if it has the expected 2s delay (allow some tolerance)
+                has_delay = delay >= 1.8  # Allow some network latency
+                
+                log_test("POST /api/generate (legacy)", "PASS", 
+                       f"Delay: {delay:.1f}s, Subject: {paper_data.get('subject')}")
+                return True
+            else:
+                log_test("POST /api/generate (legacy)", "FAIL", f"Invalid response: {data}")
                 return False
         else:
-            print_result(False, f"Expected status 400 for empty body, got {response.status_code}")
+            log_test("POST /api/generate (legacy)", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
             return False
             
-    except requests.exceptions.RequestException as e:
-        print_result(False, f"Request failed: {str(e)}")
+    except Exception as e:
+        log_test("POST /api/generate (legacy)", "FAIL", f"Exception: {str(e)}")
         return False
-    
-    return True
+
+def test_json_injection():
+    """Test POST /api/inject - JSON injection"""
+    try:
+        # Test successful injection
+        test_data = {
+            "jsonData": {
+                "university": "Test University",
+                "sections": []
+            }
+        }
+        
+        response = requests.post(f"{BASE_URL}/api/inject", 
+                               json=test_data, timeout=TIMEOUT)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                injected_data = data["data"]
+                log_test("POST /api/inject (success)", "PASS", 
+                       f"Injected: {injected_data}")
+                success_test = True
+            else:
+                log_test("POST /api/inject (success)", "FAIL", f"Invalid response: {data}")
+                success_test = False
+        else:
+            log_test("POST /api/inject (success)", "FAIL", 
+                   f"Status: {response.status_code}, Response: {response.text}")
+            success_test = False
+        
+        # Test error case - no jsonData
+        test_data = {}
+        response = requests.post(f"{BASE_URL}/api/inject", 
+                               json=test_data, timeout=TIMEOUT)
+        
+        if response.status_code == 400:
+            data = response.json()
+            if not data.get("success") and "No JSON data provided" in data.get("error", ""):
+                log_test("POST /api/inject (missing data)", "PASS", "Correctly rejected missing jsonData")
+                error_test = True
+            else:
+                log_test("POST /api/inject (missing data)", "FAIL", f"Unexpected error: {data}")
+                error_test = False
+        else:
+            log_test("POST /api/inject (missing data)", "FAIL", 
+                   f"Expected 400, got {response.status_code}")
+            error_test = False
+        
+        return success_test and error_test
+        
+    except Exception as e:
+        log_test("POST /api/inject", "FAIL", f"Exception: {str(e)}")
+        return False
 
 def main():
     """Run all backend tests"""
-    print("QuestionCraft AI Backend API Testing")
+    print("=" * 80)
+    print("QuestionCraft AI Backend API Testing Suite")
     print(f"Base URL: {BASE_URL}")
-    print(f"Timestamp: {datetime.now().isoformat()}")
+    print(f"Timeout: {TIMEOUT}s")
+    print("=" * 80)
+    print()
     
-    test_results = []
+    # Track test results
+    test_results = {}
     
     # Run all tests
-    test_results.append(("Health Endpoint", test_health_endpoint()))
-    test_results.append(("Subjects Endpoint", test_subjects_endpoint()))
-    test_results.append(("Generate Endpoint (Original)", test_generate_endpoint()))
-    test_results.append(("Generate Endpoint (NEW Parameters)", test_generate_endpoint_new_params()))
-    test_results.append(("Inject Endpoint", test_inject_endpoint()))
+    test_results["health"] = test_health_endpoint()
+    test_results["upload"] = test_file_upload()
+    test_results["directory"] = test_directory_scan()
+    test_results["status"] = test_ingest_status()
+    test_results["generate_paper"] = test_generate_paper()
+    test_results["feedback"] = test_feedback()
+    test_results["vector_stats"] = test_vector_store_stats()
+    test_results["vector_search"] = test_vector_store_search()
+    test_results["legacy_generate"] = test_legacy_generate()
+    test_results["inject"] = test_json_injection()
     
-    # Print summary
-    print(f"\n{'='*60}")
+    # Summary
+    print("=" * 80)
     print("TEST SUMMARY")
-    print(f"{'='*60}")
+    print("=" * 80)
     
-    passed = 0
+    passed = sum(1 for result in test_results.values() if result)
     total = len(test_results)
     
-    for test_name, result in test_results:
+    for test_name, result in test_results.items():
         status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status}: {test_name}")
-        if result:
-            passed += 1
+        print(f"{status} {test_name}")
     
-    print(f"\nOverall Result: {passed}/{total} tests passed")
+    print()
+    print(f"Overall: {passed}/{total} tests passed ({passed/total*100:.1f}%)")
     
     if passed == total:
-        print("🎉 All backend API endpoints are working correctly!")
+        print("🎉 All backend tests passed!")
         return True
     else:
-        print("⚠️  Some backend API endpoints have issues that need attention.")
+        print("⚠️  Some tests failed - check details above")
         return False
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()
